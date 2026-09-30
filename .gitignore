@@ -1,0 +1,11 @@
+# Real env files (secrets) — jangan pernah di-commit
+.env
+.env.local
+.env.*.local
+
+# Kecualikan template agar bisa di-commit
+.env.example
+.vercel
+
+node_modules/
+PANDUAN-WEBAPP-SYNC.md
