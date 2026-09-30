@@ -9,3 +9,5 @@
 
 node_modules/
 PANDUAN-WEBAPP-SYNC.md
+*.md*
+!README.md

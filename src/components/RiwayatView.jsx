@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { historyService } from '../services/syncService';
 import { formatCurrency, formatDateTime, formatRelativeTime, getPaymentLabel } from '../utils/formatters';
+import { exportRiwayatToXlsx } from '../utils/excelExport';
 
 // DEN POS-style color constants (matching src/constants/design.js)
 const G = "#1a5c38";       // Primary green
@@ -29,6 +30,23 @@ export default function RiwayatView({ user }) {
   const [filters, setFilters] = useState({ startDate: '', endDate: '', limit: 500 });
   const [search, setSearch] = useState('');
   const [selectedTrx, setSelectedTrx] = useState(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await exportRiwayatToXlsx(filteredTransactions, {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        search
+      });
+    } catch (err) {
+      console.error('[RiwayatView.export]', err);
+      alert('Gagal membuat file Excel: ' + (err?.message || err));
+    } finally {
+      setExporting(false);
+    }
+  }, [filteredTransactions, filters.startDate, filters.endDate, search]);
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -101,24 +119,53 @@ export default function RiwayatView({ user }) {
           <p style={{ fontSize: '12px', color: MT, marginBottom: 0 }}>
             {filteredTransactions.length} transaksi • Last updated: {lastUpdated ? formatRelativeTime(lastUpdated) : '-'}
           </p>
-          <button
-            onClick={() => load(false)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '8px 16px',
-              backgroundColor: G,
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer'
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>Refresh</span>
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleExport}
+              disabled={exporting || filteredTransactions.length === 0}
+              title={
+                filteredTransactions.length === 0
+                  ? 'Tidak ada transaksi untuk diunduh'
+                  : `Unduh ${filteredTransactions.length} transaksi (sesuai filter) ke Excel`
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '8px 16px',
+                backgroundColor: OR,
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: exporting || filteredTransactions.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: exporting || filteredTransactions.length === 0 ? 0.6 : 1
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>
+                {exporting ? 'Menyiapkan...' : 'Download Excel'}
+              </span>
+            </button>
+            <button
+              onClick={() => load(false)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '8px 16px',
+                backgroundColor: G,
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>Refresh</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -196,6 +243,11 @@ export default function RiwayatView({ user }) {
             </button>
           </div>
         </div>
+        <p style={{ fontSize: '11px', color: MT, margin: '12px 0 0' }}>
+          💡 Tombol <strong>Download Excel</strong> mengunduh semua transaksi yang
+          tampil saat ini. Gunakan <em>Dari/Sampai Tanggal</em> atau kolom
+          <em> Cari</em> untuk membatasi data yang diunduh.
+        </p>
       </Card>
 
       {/* Transaction List */}

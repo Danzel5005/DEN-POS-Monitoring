@@ -133,8 +133,12 @@ export const reportService = {
   /**
    * Laporan ringkas: { summary, data: { transactions, topProducts } }
    * (kompatibel dengan LaporanView).
+   * Filter opsional:
+   *   - days      : hanya N hari terakhir (dipakai dashboard bila perlu)
+   *   - startDate : "YYYY-MM-DD" (inklusif)
+   *   - endDate   : "YYYY-MM-DD" (inklusif, sampai 23:59:59)
    */
-  async getLaporan({ days } = {}) {
+  async getLaporan({ days, startDate, endDate } = {}) {
     const all = await this._all();
     let rows = all;
     if (days) {
@@ -142,6 +146,15 @@ export const reportService = {
       rows = all.filter((t) => {
         const d = transactionDate(t);
         return d ? new Date(d).getTime() >= cutoff : true;
+      });
+    }
+    if (startDate) {
+      rows = rows.filter((t) => String(transactionDate(t) || "") >= startDate);
+    }
+    if (endDate) {
+      rows = rows.filter((t) => {
+        const d = transactionDate(t);
+        return d ? String(d) <= `${endDate}T23:59:59` : false;
       });
     }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { reportService } from '../services/syncService';
 import { formatCurrency, formatNumber, formatRelativeTime } from '../utils/formatters';
+import { exportLaporanToXlsx } from '../utils/excelExport';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell
@@ -47,11 +48,14 @@ export default function LaporanView({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [filters, setFilters] = useState({ startDate: '', endDate: '' });
+  const [appliedFilters, setAppliedFilters] = useState({ startDate: '', endDate: '' });
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const result = await reportService.getLaporan();
+      const result = await reportService.getLaporan(appliedFilters);
       setData(result);
       setError(null);
       setLastUpdated(new Date());
@@ -60,13 +64,31 @@ export default function LaporanView({ user }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [appliedFilters]);
 
   useEffect(() => {
     load(true);
     const interval = setInterval(() => load(false), 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [load]);
+
+  const handleExport = useCallback(async () => {
+    if (!data) return;
+    setExporting(true);
+    try {
+      await exportLaporanToXlsx(data, {
+        startDate: appliedFilters.startDate,
+        endDate: appliedFilters.endDate
+      });
+    } catch (err) {
+      console.error('[LaporanView.export]', err);
+      alert('Gagal membuat file Excel: ' + (err?.message || err));
+    } finally {
+      setExporting(false);
+    }
+  }, [data, appliedFilters]);
+
+  const hasTransactions = (data?.data?.transactions || []).length > 0;
 
   if (loading) {
     return (
@@ -129,29 +151,69 @@ export default function LaporanView({ user }) {
           <p style={{ fontSize: '12px', color: MT, marginBottom: 0 }}>
             Last updated: {lastUpdated ? formatRelativeTime(lastUpdated) : '-'}
           </p>
-          <button
-            onClick={() => load(false)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '8px 16px',
-              backgroundColor: G,
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={e => e.target.style.backgroundColor = '#14492e'}
-            onMouseLeave={e => e.target.style.backgroundColor = G}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>Refresh</span>
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleExport}
+              disabled={exporting || !hasTransactions}
+              title={
+                !hasTransactions
+                  ? 'Tidak ada data untuk diunduh'
+                  : 'Unduh laporan (sesuai filter) ke Excel'
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '8px 16px',
+                backgroundColor: OR,
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: exporting || !hasTransactions ? 'not-allowed' : 'pointer',
+                opacity: exporting || !hasTransactions ? 0.6 : 1
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>
+                {exporting ? 'Menyiapkan...' : 'Download Excel'}
+              </span>
+            </button>
+            <button
+              onClick={() => load(false)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '8px 16px',
+                backgroundColor: G,
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={e => e.target.style.backgroundColor = '#14492e'}
+              onMouseLeave={e => e.target.style.backgroundColor = G}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>Refresh</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Filter & Cari */}
+      <FilterCard
+        filters={filters}
+        onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
+        onApply={() => setAppliedFilters({ ...filters })}
+        onReset={() => {
+          setFilters({ startDate: '', endDate: '' });
+          setAppliedFilters({ startDate: '', endDate: '' });
+        }}
+      />
 
       {/* Summary Cards - DEN POS card style */}
       <div style={{ 
@@ -328,6 +390,97 @@ function TableCard({ title, children }) {
     }}>
       <h2 style={{ fontSize: '14px', fontWeight: 600, color: TX, marginBottom: '16px' }}>{title}</h2>
       {children}
+    </div>
+  );
+}
+
+function FilterCard({ filters, onChange, onApply, onReset }) {
+  const inputStyle = {
+    width: '100%',
+    padding: '8px 10px',
+    border: `1px solid ${BD}`,
+    borderRadius: 8,
+    fontSize: '13px',
+    outline: 'none'
+  };
+  const labelStyle = {
+    display: 'block',
+    fontSize: '12px',
+    color: MT,
+    fontWeight: 500,
+    marginBottom: '4px'
+  };
+
+  return (
+    <div style={{
+      background: W,
+      border: `1px solid ${BD}`,
+      borderRadius: 8,
+      padding: '16px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      marginBottom: '24px'
+    }}>
+      <h2 style={{ fontSize: '14px', fontWeight: 600, color: TX, marginBottom: '16px' }}>Filter &amp; Cari</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+        <div>
+          <label style={labelStyle}>Dari Tanggal</label>
+          <input
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => onChange({ startDate: e.target.value })}
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label style={labelStyle}>Sampai Tanggal</label>
+          <input
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => onChange({ endDate: e.target.value })}
+            style={inputStyle}
+          />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'end', gap: '8px' }}>
+          <button
+            onClick={onApply}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              backgroundColor: G,
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            Terapkan Filter
+          </button>
+          <button
+            onClick={onReset}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              backgroundColor: BG,
+              color: TX,
+              border: 'none',
+              borderRadius: 8,
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer'
+            }}
+          >
+            Reset Filter
+          </button>
+        </div>
+      </div>
+      <p style={{ fontSize: '11px', color: MT, margin: '12px 0 0' }}>
+        💡 Atur rentang tanggal lalu klik <strong>Terapkan Filter</strong>. Tombol
+        <strong> Download Excel</strong> akan mengunduh laporan sesuai rentang yang
+        dipilih (beserta ringkasan, transaksi, detail item, produk terlaris, dan
+        rekap metode bayar).
+      </p>
     </div>
   );
 }

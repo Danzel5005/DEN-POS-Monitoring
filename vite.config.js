@@ -5,7 +5,5 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    // NOTE: proxy ke Express (localhost:3001) sudah dihapus — web-app kini
-    // memakai Supabase langsung (lihat src/services/supabaseClient.js).
-  }
+      }
 });
