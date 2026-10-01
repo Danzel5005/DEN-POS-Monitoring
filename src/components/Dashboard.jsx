@@ -6,9 +6,11 @@ import SyncDataView from './SyncDataView';
 import AccountView from './AccountView';
 
 const LaporanView = lazy(() => import('./LaporanView'));
+const StokView = lazy(() => import('./StokView'));
 
 // Daftar tab navigasi — satu sumber untuk desktop & mobile.
 const NAV = [
+  { to: '/isi-stok', label: 'Isi Stok' },
   { to: '/laporan', label: 'Laporan' },
   { to: '/riwayat', label: 'Riwayat' },
   { to: '/data-sync', label: 'Data Tersinkron' },
@@ -142,6 +144,7 @@ export default function Dashboard({ user, onLogout }) {
       <main className="dashboard-main max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Suspense fallback={<div className="py-12 text-center text-sm text-gray-500">Memuat laporan…</div>}>
           <Routes>
+            <Route path="isi-stok" element={<StokView user={user} />} />
             <Route path="laporan" element={<LaporanView user={user} />} />
             <Route path="riwayat" element={<RiwayatView user={user} />} />
             <Route path="data-sync" element={<SyncDataView />} />
