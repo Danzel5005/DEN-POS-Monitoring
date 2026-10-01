@@ -1,6 +1,5 @@
 // ── Excel (.xlsx) export helpers ───────────────────────────────────────────
 // Menggunakan SheetJS (xlsx) untuk membangun workbook dan triggering download.
-// Library dimuat via CDN preload di index.html untuk menghindari circular dependency.
 
 import { formatNumber } from './formatters';
 
@@ -70,114 +69,30 @@ export function rangeSuffix(startDate, endDate) {
   return '';
 }
 
-/**
- * Auto-fit lebar kolom berdasarkan panjang konten (dibatasi agar tidak terlalu
- * lebar). Nilai numerik diformat dengan pemisah ribuan agar ikut terhitung.
- */
+/** Auto-fit kolom lebar berdasarkan konten */
 function autoFitColumns(rows) {
   if (!rows.length) return [];
   const keys = Object.keys(rows[0]);
   return keys.map((key) => {
     const maxLen = rows.reduce((max, row) => {
       const raw = row[key];
-      const text =
-        typeof raw === 'number' ? formatNumber(raw) : String(raw ?? '');
+      const text = typeof raw === 'number' ? formatNumber(raw) : String(raw ?? '');
       return Math.max(max, text.length);
     }, key.length);
     return { wch: Math.min(Math.max(maxLen + 2, 8), 40) };
   });
 }
 
-/** Tambah sheet dari array of objects dengan header & lebar kolom otomatis. */
+/** Tambah sheet dari array of objects */
 function addSheet(XLSX, workbook, name, rows) {
   const worksheet = XLSX.utils.json_to_sheet(rows);
   worksheet['!cols'] = autoFitColumns(rows);
-  // Bekukan baris header.
   worksheet['!freeze'] = { xSplit: 0, ySplit: 1 };
   XLSX.utils.book_append_sheet(workbook, worksheet, name);
 }
 
-// ── Riwayat Transaksi ──────────────────────────────────────────────────────
-// ── Laporan Transaksi ──────────────────────────────────────────────────────
+// ── Riwayat Transaksi Helpers ──────────────────────────────────────────────
 
-/**
- * Bangun baris ringkasan laporan
- */
-function buildReportSummaryRows(report) {
-  const { summary, data } = report || {};
-  if (!summary) return [];
-  
-  return [
-    { 'Metric': 'Total Revenue', 'Value': summary.totalRevenue || 0 },
-    { 'Metric': 'Total Transactions', 'Value': summary.totalTransactions || 0 },
-    { 'Metric': 'Average Order Value', 'Value': summary.averageOrderValue || 0 },
-    { 'Metric': 'Voided Transactions', 'Value': summary.voidedTransactions || 0 }
-  ];
-}
-
-/**
- * Bangun baris top products dari laporan
- */
-function buildTopProductsRows(report) {
-  const { data } = report || {};
-  if (!data?.topProducts) return [];
-  
-  return data.topProducts.map((p, idx) => ({
-    'Rank': idx + 1,
-    'Produk': p.name || String(p.id),
-    'Qty Terjual': p.qty || 0,
-    'Revenue': p.revenue || 0
-  }));
-}
-
-/**
- * Ekspor laporan (ringkasan + transaksi + produk + metode bayar) ke .xlsx.
- * @param {object} report hasil reportService.getLaporan / data terfilter
- * @param {{startDate?: string, endDate?: string}} [meta]
- */
-export async function exportLaporanToXlsx(report = {}, meta = {}) {
-  if (!window.XLSX) {
-    throw new Error('[excelExport] XLSX library belum tersedia. Silakan refresh halaman.');
-  }
-  
-  const workbook = window.XLSX.utils.book_new();
-
-  // Sheet 1: Ringkasan Laporan
-  const summaryRows = buildReportSummaryRows(report);
-  if (summaryRows.length) {
-    addSheet(window.XLSX, workbook, 'Ringkasan', summaryRows);
-  }
-
-  // Sheet 2: Semua Transaksi
-  const allTransactions = report?.data?.transactions || [];
-  if (allTransactions.length) {
-    addSheet(window.XLSX, workbook, 'Semua Transaksi', 
-      buildTransactionSummaryRows(allTransactions)
-    );
-  }
-
-  // Sheet 3: Top Products
-  const topProductsRows = buildTopProductsRows(report);
-  if (topProductsRows.length) {
-    addSheet(window.XLSX, workbook, 'Top Products', topProductsRows);
-  }
-
-  const fileName = buildFileName(
-    'laporan',
-    rangeSuffix(meta.startDate, meta.endDate)
-  );
-  
-  window.XLSX.writeFile(workbook, fileName, { compression: true });
-  return fileName;
-}
-
-/**
- * Bangun baris ringkasan per transaksi (satu baris = satu transaksi).
- */
-
-/**
- * Bangun baris ringkasan per transaksi (satu baris = satu transaksi).
- */
 function buildTransactionSummaryRows(transactions) {
   return transactions.map((t) => {
     const void_ = isVoided(t);
@@ -193,16 +108,11 @@ function buildTransactionSummaryRows(transactions) {
       'Total': Number(t.total) || 0,
       'Dibayar': Number(t.bayar ?? t.paid ?? t.total) || 0,
       'Kembalian': Number(t.kembalian) || 0,
-      'Alasan Void': void_
-        ? VOID_REASON_LABELS[t.voidReason] || t.voidReason || '-'
-        : ''
+      'Alasan Void': void_ ? (VOID_REASON_LABELS[t.voidReason] || t.voidReason || '-') : ''
     };
   });
 }
 
-/**
- * Bangun baris rincian per item (satu baris = satu item transaksi).
- */
 function buildTransactionItemRows(transactions) {
   const rows = [];
   for (const t of transactions) {
@@ -226,32 +136,100 @@ function buildTransactionItemRows(transactions) {
   return rows;
 }
 
-/**
- * Ekspor riwayat transaksi ke file .xlsx.
- * @param {Array} transactions daftar transaksi yang sudah difilter
- * @param {{startDate?: string, endDate?: string, search?: string}} [meta]
- */
+/** Load XLSX library lazily */
+async function loadXLSX() {
+  const module = await import('xlsx');
+  return module.default || module;
+}
+
+// ── Export Functions ───────────────────────────────────────────────────────
+
+/** Ekspor riwayat transaksi ke file .xlsx */
 export async function exportRiwayatToXlsx(transactions = [], meta = {}) {
-  // Gunakan window.XLSX yang sudah diload dari CDN
-  if (!window.XLSX) {
-    throw new Error('[excelExport] XLSX library belum tersedia. Silakan refresh halaman.');
+  try {
+    const XLSX = await loadXLSX();
+    const workbook = XLSX.utils.book_new();
+
+    const summaryRows = buildTransactionSummaryRows(transactions);
+    addSheet(XLSX, workbook, 'Transaksi', summaryRows);
+
+    const itemRows = buildTransactionItemRows(transactions);
+    if (itemRows.length) {
+      addSheet(XLSX, workbook, 'Detail Item', itemRows);
+    }
+
+    const fileName = buildFileName(
+      'riwayat-transaksi',
+      rangeSuffix(meta.startDate, meta.endDate)
+    );
+    
+    XLSX.writeFile(workbook, fileName, { compression: true });
+    return fileName;
+  } catch (err) {
+    console.error('[exportRiwayatToXlsx]', err);
+    throw new Error('Gagal membuat file Excel: ' + err.message);
   }
+}
+
+// ── Laporan Transaksi ──────────────────────────────────────────────────────
+
+function buildReportSummaryRows(report) {
+  const { summary } = report || {};
+  if (!summary) return [];
   
-  const workbook = window.XLSX.utils.book_new();
+  return [
+    { 'Metric': 'Total Revenue', 'Value': summary.totalRevenue || 0 },
+    { 'Metric': 'Total Transactions', 'Value': summary.totalTransactions || 0 },
+    { 'Metric': 'Average Order Value', 'Value': summary.averageOrderValue || 0 },
+    { 'Metric': 'Voided Transactions', 'Value': summary.voidedTransactions || 0 }
+  ];
+}
 
-  const summaryRows = buildTransactionSummaryRows(transactions);
-  addSheet(window.XLSX, workbook, 'Transaksi', summaryRows);
+function buildTopProductsRows(report) {
+  const { data } = report || {};
+  if (!data?.topProducts) return [];
+  
+  return data.topProducts.map((p, idx) => ({
+    'Rank': idx + 1,
+    'Produk': p.name || String(p.id),
+    'Qty Terjual': p.qty || 0,
+    'Revenue': p.revenue || 0
+  }));
+}
 
-  const itemRows = buildTransactionItemRows(transactions);
-  if (itemRows.length) {
-    addSheet(window.XLSX, workbook, 'Detail Item', itemRows);
+/** Ekspor laporan ke file .xlsx */
+export async function exportLaporanToXlsx(report = {}, meta = {}) {
+  try {
+    const XLSX = await loadXLSX();
+    const workbook = XLSX.utils.book_new();
+
+    // Sheet 1: Ringkasan Laporan
+    const summaryRows = buildReportSummaryRows(report);
+    if (summaryRows.length) {
+      addSheet(XLSX, workbook, 'Ringkasan', summaryRows);
+    }
+
+    // Sheet 2: Semua Transaksi
+    const allTransactions = report?.data?.transactions || [];
+    if (allTransactions.length) {
+      addSheet(XLSX, workbook, 'Semua Transaksi', buildTransactionSummaryRows(allTransactions));
+    }
+
+    // Sheet 3: Top Products
+    const topProductsRows = buildTopProductsRows(report);
+    if (topProductsRows.length) {
+      addSheet(XLSX, workbook, 'Top Products', topProductsRows);
+    }
+
+    const fileName = buildFileName(
+      'laporan',
+      rangeSuffix(meta.startDate, meta.endDate)
+    );
+    
+    XLSX.writeFile(workbook, fileName, { compression: true });
+    return fileName;
+  } catch (err) {
+    console.error('[exportLaporanToXlsx]', err);
+    throw new Error('Gagal membuat file Excel: ' + err.message);
   }
-
-  const fileName = buildFileName(
-    'riwayat-transaksi',
-    rangeSuffix(meta.startDate, meta.endDate)
-  );
-  
-  window.XLSX.writeFile(workbook, fileName, { compression: true });
-  return fileName;
 }
