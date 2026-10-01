@@ -32,22 +32,6 @@ export default function RiwayatView({ user }) {
   const [selectedTrx, setSelectedTrx] = useState(null);
   const [exporting, setExporting] = useState(false);
 
-  const handleExport = useCallback(async () => {
-    setExporting(true);
-    try {
-      await exportRiwayatToXlsx(filteredTransactions, {
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        search
-      });
-    } catch (err) {
-      console.error('[RiwayatView.export]', err);
-      alert('Gagal membuat file Excel: ' + (err?.message || err));
-    } finally {
-      setExporting(false);
-    }
-  }, [filteredTransactions, filters.startDate, filters.endDate, search]);
-
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
@@ -83,6 +67,22 @@ export default function RiwayatView({ user }) {
       );
     });
   }, [transactions, search]);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await exportRiwayatToXlsx(filteredTransactions, {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        search
+      });
+    } catch (err) {
+      console.error('[RiwayatView.export]', err);
+      alert('Gagal membuat file Excel: ' + (err?.message || err));
+    } finally {
+      setExporting(false);
+    }
+  }, [filteredTransactions, filters.startDate, filters.endDate, search]);
 
   if (loading) {
     return (
