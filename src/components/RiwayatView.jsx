@@ -115,11 +115,11 @@ export default function RiwayatView({ user }) {
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 700, color: TX, marginBottom: '8px' }}>Riwayat Transaksi</h1>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="report-header-meta">
           <p style={{ fontSize: '12px', color: MT, marginBottom: 0 }}>
             {filteredTransactions.length} transaksi • Last updated: {lastUpdated ? formatRelativeTime(lastUpdated) : '-'}
           </p>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="report-actions">
             <button
               onClick={handleExport}
               disabled={exporting || filteredTransactions.length === 0}
@@ -131,6 +131,8 @@ export default function RiwayatView({ user }) {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 44,
                 padding: '8px 16px',
                 backgroundColor: OR,
                 color: 'white',
@@ -152,6 +154,8 @@ export default function RiwayatView({ user }) {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 44,
                 padding: '8px 16px',
                 backgroundColor: G,
                 color: 'white',

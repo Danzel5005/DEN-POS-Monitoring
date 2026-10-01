@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../services/authService";
+import PasswordInput from "./PasswordInput";
 
 // AuthScreen — Login & Daftar akun (Supabase Auth, satu project milik pemilik
 // aplikasi). User cukup mengetik USERNAME (bukan email); konversi ke email
@@ -83,12 +84,12 @@ export default function AuthScreen({ onLogin }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input type="password" value={form.password} onChange={set("password")} className="w-full px-4 py-3 rounded-lg" style={inputStyle} placeholder="Minimal 6 karakter" autoComplete={mode === "login" ? "current-password" : "new-password"} />
+            <PasswordInput value={form.password} onChange={set("password")} className="auth-input w-full rounded-lg px-4 py-3" style={inputStyle} placeholder="Minimal 6 karakter" autoComplete={mode === "login" ? "current-password" : "new-password"} />
           </div>
           {mode === "register" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ulangi Password</label>
-              <input type="password" value={form.confirm} onChange={set("confirm")} className="w-full px-4 py-3 rounded-lg" style={inputStyle} placeholder="Ulangi password" autoComplete="new-password" />
+              <PasswordInput value={form.confirm} onChange={set("confirm")} className="auth-input w-full rounded-lg px-4 py-3" style={inputStyle} placeholder="Ulangi password" autoComplete="new-password" />
             </div>
           )}
 

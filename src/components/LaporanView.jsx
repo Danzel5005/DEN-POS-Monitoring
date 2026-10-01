@@ -51,6 +51,7 @@ export default function LaporanView({ user }) {
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
   const [appliedFilters, setAppliedFilters] = useState({ startDate: '', endDate: '' });
   const [exporting, setExporting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -147,11 +148,11 @@ export default function LaporanView({ user }) {
       {/* Header - DEN POS style */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 700, color: TX, marginBottom: '8px' }}>Laporan Transaksi</h1>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="report-header-meta">
           <p style={{ fontSize: '12px', color: MT, marginBottom: 0 }}>
             Last updated: {lastUpdated ? formatRelativeTime(lastUpdated) : '-'}
           </p>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="report-actions">
             <button
               onClick={handleExport}
               disabled={exporting || !hasTransactions}
@@ -163,7 +164,9 @@ export default function LaporanView({ user }) {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                padding: '8px 16px',
+                justifyContent: 'center',
+                minHeight: 44,
+                padding: '8px 12px',
                 backgroundColor: OR,
                 color: 'white',
                 border: 'none',
@@ -180,25 +183,36 @@ export default function LaporanView({ user }) {
               </span>
             </button>
             <button
-              onClick={() => load(false)}
+              onClick={async () => {
+                setRefreshing(true);
+                try {
+                  await load(false);
+                } finally {
+                  setRefreshing(false);
+                }
+              }}
+              disabled={refreshing}
+              aria-label={refreshing ? 'Memperbarui laporan' : 'Refresh laporan'}
+              aria-busy={refreshing}
+              className="report-refresh"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                padding: '8px 16px',
+                justifyContent: 'center',
+                minHeight: 44,
+                padding: '8px 12px',
                 backgroundColor: G,
                 color: 'white',
                 border: 'none',
                 borderRadius: 8,
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
+                cursor: refreshing ? 'wait' : 'pointer',
+                opacity: refreshing ? 0.75 : 1
               }}
-              onMouseEnter={e => e.target.style.backgroundColor = '#14492e'}
-              onMouseLeave={e => e.target.style.backgroundColor = G}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className={refreshing ? 'refresh-icon is-refreshing' : 'refresh-icon'} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>Refresh</span>
+              <span aria-live="polite" style={{ marginLeft: '8px', fontSize: '14px', fontWeight: 500 }}>{refreshing ? 'Memperbarui...' : 'Refresh'}</span>
             </button>
           </div>
         </div>
@@ -245,12 +259,12 @@ export default function LaporanView({ user }) {
       </div>
 
       {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div className="dashboard-chart-grid">
         {/* Top Products Chart */}
         <ChartCard title="Produk Terlaris (7 hari)">
           {topProductsData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topProductsData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+              <BarChart data={topProductsData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={BD} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} style={{ fontSize: '10px' }} />
                 <YAxis tick={{ fontSize: 10, color: MT }} />
@@ -314,10 +328,16 @@ export default function LaporanView({ user }) {
       {/* Top Products Table */}
       <TableCard title="Detail Produk Terlaris">
         {topProducts.length > 0 ? (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="top-products-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col className="top-products-index" style={{ width: '8%' }} />
+              <col style={{ width: '36%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '34%' }} />
+            </colgroup>
             <thead>
               <tr style={{ backgroundColor: BG }}>
-                <th style={thStyle}>#</th>
+                <th className="top-products-index" style={thStyle}>#</th>
                 <th style={thStyle}>Produk</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Qty Terjual</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Pendapatan</th>
@@ -326,7 +346,7 @@ export default function LaporanView({ user }) {
             <tbody>
               {topProducts.map((product, idx) => (
                 <tr key={product.id || idx} style={{ borderBottom: `1px solid ${BD}` }}>
-                  <td style={tdStyle}>{idx + 1}</td>
+                  <td className="top-products-index" style={tdStyle}>{idx + 1}</td>
                   <td style={tdStyle}>{product.name || 'Unknown'}</td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>{formatNumber(product.qty)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(product.revenue)}</td>
@@ -486,17 +506,19 @@ function FilterCard({ filters, onChange, onApply, onReset }) {
 }
 
 const thStyle = {
-  padding: '12px 16px',
+  padding: '8px 6px',
   fontSize: '12px',
   fontWeight: 600,
   color: TX,
   textAlign: 'left',
-  borderBottom: `2px solid ${BD}`
+  borderBottom: `2px solid ${BD}`,
+  overflowWrap: 'anywhere'
 };
 
 const tdStyle = {
-  padding: '12px 16px',
+  padding: '8px 6px',
   fontSize: '13px',
   color: TX,
-  borderBottom: `1px solid ${BD}`
+  borderBottom: `1px solid ${BD}`,
+  overflowWrap: 'anywhere'
 };

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthScreen from './components/AuthScreen';
-import Dashboard from './components/Dashboard';
 import { authService } from './services/authService';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
 
 function App() {
   const [user, setUser] = useState(null);
@@ -58,7 +59,7 @@ function App() {
         />
         <Route
           path="/*"
-          element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />}
+          element={user ? <Suspense fallback={<div className="p-6 text-center">Memuat…</div>}><Dashboard user={user} onLogout={handleLogout} /></Suspense> : <Navigate to="/login" />}
         />
       </Routes>
     </div>

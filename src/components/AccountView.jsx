@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { authService } from "../services/authService";
+import PasswordInput from "./PasswordInput";
 
 const G = "#1a5c38", W = "#fff", BD = "#e0e0d8", MT = "#888";
 
@@ -35,11 +36,11 @@ export default function AccountView({ user }) {
         <form onSubmit={submit} style={{ display: "grid", gap: 10 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: "#555" }}>Password baru</label>
-            <input type="password" value={form.next} onChange={(e) => setForm((f) => ({ ...f, next: e.target.value }))} placeholder="Minimal 6 karakter" style={input} />
+            <PasswordInput value={form.next} onChange={(e) => setForm((f) => ({ ...f, next: e.target.value }))} placeholder="Minimal 6 karakter" className="account-input" style={input} />
           </div>
           <div>
             <label style={{ display: "block", fontSize: 12, marginBottom: 4, color: "#555" }}>Ulangi password baru</label>
-            <input type="password" value={form.confirm} onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} placeholder="Ulangi password" style={input} />
+            <PasswordInput value={form.confirm} onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))} placeholder="Ulangi password" className="account-input" style={input} />
           </div>
           {msg && (
             <div style={{ padding: "8px 12px", borderRadius: 8, fontSize: 12, background: msg.type === "ok" ? "#e8f5ee" : "#ffebee", color: msg.type === "ok" ? G : "#d32f2f" }}>

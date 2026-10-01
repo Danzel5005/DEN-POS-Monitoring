@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import LaporanView from './LaporanView';
 import RiwayatView from './RiwayatView';
 import DevicesView from './DevicesView';
 import SyncDataView from './SyncDataView';
 import AccountView from './AccountView';
+
+const LaporanView = lazy(() => import('./LaporanView'));
 
 // Daftar tab navigasi — satu sumber untuk desktop & mobile.
 const NAV = [
@@ -51,7 +52,7 @@ export default function Dashboard({ user, onLogout }) {
               </div>
               
               {/* Navigation Tabs */}
-              <div className="hidden md:ml-6 md:flex md:space-x-4">
+              <div className="hidden lg:ml-6 lg:flex lg:space-x-4">
                 {NAV.map((tab) => (
                   <Link
                     key={tab.to}
@@ -118,13 +119,13 @@ export default function Dashboard({ user, onLogout }) {
       </nav>
 
       {/* Mobile Navigation */}
-      <div className="md:hidden px-4 py-2" style={{ backgroundColor: W, borderBottom: `1px solid ${BD}` }}>
-        <div className="flex space-x-2">
+      <div className="lg:hidden px-4 py-2" style={{ backgroundColor: W, borderBottom: `1px solid ${BD}` }}>
+        <div className="mobile-nav" aria-label="Navigasi utama">
           {NAV.map((tab) => (
             <Link
               key={tab.to}
               to={tab.to}
-              className="flex-1 text-center px-3 py-2 rounded-md text-xs font-medium transition-colors"
+              className="text-center px-3 py-2 rounded-md text-xs font-medium transition-colors whitespace-nowrap"
               style={
                 location.pathname.includes(tab.to)
                   ? { backgroundColor: '#e8f5ee', color: G }
@@ -138,15 +139,17 @@ export default function Dashboard({ user, onLogout }) {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Routes>
-          <Route path="laporan" element={<LaporanView user={user} />} />
-          <Route path="riwayat" element={<RiwayatView user={user} />} />
-          <Route path="data-sync" element={<SyncDataView />} />
-          <Route path="perangkat" element={<DevicesView />} />
-          <Route path="akun" element={<AccountView user={user} />} />
-          <Route index element={<Navigate to="/laporan" />} />
-        </Routes>
+      <main className="dashboard-main max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Suspense fallback={<div className="py-12 text-center text-sm text-gray-500">Memuat laporan…</div>}>
+          <Routes>
+            <Route path="laporan" element={<LaporanView user={user} />} />
+            <Route path="riwayat" element={<RiwayatView user={user} />} />
+            <Route path="data-sync" element={<SyncDataView />} />
+            <Route path="perangkat" element={<DevicesView />} />
+            <Route path="akun" element={<AccountView user={user} />} />
+            <Route index element={<Navigate to="/laporan" />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Footer */}
