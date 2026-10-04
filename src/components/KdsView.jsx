@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiArrowLeft, FiMaximize, FiMinimize, FiRefreshCw, FiVolume2, FiVolumeX } from "react-icons/fi";
-import { KDS_KIND_LABEL, KDS_STATUS_LABEL } from "../../../shared/kds-contract.js";
+import { KDS_KIND_LABEL, KDS_STATUS_LABEL } from "../utils/kds-contract.js";
 import {
   loadKdsStores,
   loadKdsStations,
