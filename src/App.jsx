@@ -1,13 +1,15 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AuthScreen from './components/AuthScreen';
 import { authService } from './services/authService';
 
 const Dashboard = lazy(() => import('./components/Dashboard'));
+const KdsView = lazy(() => import('./components/KdsView'));
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     let alive = true;
@@ -55,8 +57,12 @@ function App() {
       <Routes>
         <Route
           path="/login"
-          element={user ? <Navigate to="/laporan" replace /> : <AuthScreen onLogin={handleLogin} />}
+          element={user ? <Navigate to={location.state?.from || "/laporan"} replace /> : <AuthScreen onLogin={handleLogin} />}
         />
+        <Route path="/kds" element={user
+          ? <Suspense fallback={<div className="p-6 text-center">Memuat…</div>}><KdsView user={user} onLogout={handleLogout} /></Suspense>
+          : <Navigate to="/login" replace state={{ from: location.pathname }} />
+        } />
         <Route
           path="/*"
           element={user ? <Suspense fallback={<div className="p-6 text-center">Memuat…</div>}><Dashboard user={user} onLogout={handleLogout} /></Suspense> : <Navigate to="/login" />}

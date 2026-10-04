@@ -12,6 +12,7 @@ const StokView = lazy(() => import('./StokView'));
 const NAV = [
   { to: '/isi-stok', label: 'Isi Stok' },
   { to: '/laporan', label: 'Laporan' },
+  { to: '/kds', label: 'Dapur' },
   { to: '/riwayat', label: 'Riwayat' },
   { to: '/data-sync', label: 'Data Tersinkron' },
   { to: '/perangkat', label: 'Perangkat' },
