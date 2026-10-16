@@ -31,14 +31,6 @@ export const attendanceService = {
     return resultOrThrow({ data, error }) || { radius_m: 20 };
   },
 
-  async saveRadius(storeId, radius) {
-    const { data, error } = await supabase.rpc("set_attendance_radius", {
-      p_store_id: storeId,
-      p_radius_m: Number(radius),
-    });
-    return resultOrThrow({ data, error });
-  },
-
   async sessions(storeId, shiftId) {
     const { data, error } = await supabase.from("attendance_sessions")
       .select("id, shift_id, user_id, user_label, status, checked_in_at, checked_out_at, check_in_distance_m, check_out_distance_m, checkout_overwritten")

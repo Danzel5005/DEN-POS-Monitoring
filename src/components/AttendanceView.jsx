@@ -32,7 +32,6 @@ export default function AttendanceView({ user }) {
   const [shifts, setShifts] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [radius, setRadius] = useState(20);
-  const [radiusDraft, setRadiusDraft] = useState("20");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -49,7 +48,6 @@ export default function AttendanceView({ user }) {
       ]);
       setShifts(shiftRows);
       setRadius(settings.radius_m || 20);
-      setRadiusDraft(String(settings.radius_m || 20));
       const openShift = shiftRows.find((shift) => shift.status === "open");
       setSessions(openShift ? await attendanceService.sessions(member.store_id, openShift.id) : []);
     } catch (err) { setError(err.message || "Gagal memuat data presensi."); }
@@ -60,8 +58,6 @@ export default function AttendanceView({ user }) {
 
   const activeShift = shifts.find((shift) => shift.status === "open");
   const ownSession = sessions.find((session) => session.user_id === user?.id);
-  const canManageRadius = membership?.permission === "owner" || ["manager", "admin"].includes(membership?.web_role);
-
   const submitAttendance = async (type) => {
     if (!activeShift || busy) return;
     setBusy(true); setError(""); setNotice("");
@@ -76,16 +72,6 @@ export default function AttendanceView({ user }) {
     } finally { setBusy(false); }
   };
 
-  const saveRadius = async (event) => {
-    event.preventDefault();
-    const value = Number(radiusDraft);
-    if (!Number.isInteger(value) || value < 1 || value > 1000) { setError("Jarak harus berupa bilangan 1–1000 meter."); return; }
-    setBusy(true); setError("");
-    try { await attendanceService.saveRadius(membership.store_id, value); setRadius(value); setNotice("Batas jarak presensi tersimpan."); await load(); }
-    catch (err) { setError(err.message || "Gagal menyimpan batas jarak."); }
-    finally { setBusy(false); }
-  };
-
   return <section className="mx-auto max-w-4xl px-4 py-8">
     <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div><p className="text-xs font-bold uppercase tracking-wide text-orange-700">DEN POS Monitor</p><h1 className="text-2xl font-bold text-gray-900">Presensi</h1></div>
@@ -96,7 +82,7 @@ export default function AttendanceView({ user }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-300 bg-white p-4">
         <div><p className="text-sm text-gray-600">{ROLE_NAMES[membership.web_role] || membership.web_role} · {user?.name || user?.username}</p>
           {activeShift ? <p className="mt-1 font-semibold text-green-800">Shift {activeShift.shift_num || "aktif"} · {activeShift.operator_label || "DEN POS"}</p> : <p className="mt-1 font-semibold text-red-700">Belum ada shift aktif dari DEN POS</p>}</div>
-        {canManageRadius && <form onSubmit={saveRadius} className="flex items-end gap-2"><label className="text-xs text-gray-600">Batas jarak (meter)<input aria-label="Batas jarak presensi dalam meter" type="number" min="1" max="1000" value={radiusDraft} onChange={(e) => setRadiusDraft(e.target.value)} className="mt-1 block h-10 w-28 rounded border border-gray-300 px-2 text-sm" /></label><button disabled={busy} className="h-10 rounded bg-green-800 px-3 text-sm font-semibold text-white">Simpan</button></form>}
+        <p className="text-xs text-gray-600">Batas lokasi presensi ditetapkan oleh admin di software DEN POS.</p>
       </div>
       {error && <div role="alert" className="mb-4 border border-red-300 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
       {notice && <div role="status" className="mb-4 border border-green-300 bg-green-50 p-4 text-sm text-green-900">{notice}</div>}
