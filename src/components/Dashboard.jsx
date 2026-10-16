@@ -4,19 +4,23 @@ import RiwayatView from './RiwayatView';
 import DevicesView from './DevicesView';
 import SyncDataView from './SyncDataView';
 import AccountView from './AccountView';
+import AttendanceView from './AttendanceView';
+import AttendanceLog from './AttendanceLog';
+import { attendanceService } from '../services/attendanceService';
 
 const LaporanView = lazy(() => import('./LaporanView'));
 const StokView = lazy(() => import('./StokView'));
 
 // Daftar tab navigasi — satu sumber untuk desktop & mobile.
 const NAV = [
-  { to: '/isi-stok', label: 'Isi Stok' },
-  { to: '/laporan', label: 'Laporan' },
-  { to: '/kds', label: 'Dapur' },
-  { to: '/riwayat', label: 'Riwayat' },
-  { to: '/data-sync', label: 'Data Tersinkron' },
-  { to: '/perangkat', label: 'Perangkat' },
-  { to: '/akun', label: 'Akun' },
+  { to: '/presensi', label: 'Presensi', roles: ['kasir', 'bar', 'purchasing', 'manager', 'admin'] },
+  { to: '/isi-stok', label: 'Isi Stok', roles: ['purchasing', 'admin'] },
+  { to: '/laporan', label: 'Laporan', roles: ['manager', 'admin'] },
+  { to: '/kds', label: 'Dapur', roles: ['kasir', 'bar', 'admin'] },
+  { to: '/riwayat', label: 'Riwayat', roles: ['manager', 'admin'] },
+  { to: '/data-sync', label: 'Data Tersinkron', roles: ['manager', 'admin'] },
+  { to: '/perangkat', label: 'Perangkat', roles: ['kasir', 'bar', 'purchasing', 'manager', 'admin'] },
+  { to: '/akun', label: 'Akun', roles: ['kasir', 'bar', 'purchasing', 'manager', 'admin'] },
 ];
 
 // DEN POS-style colors
@@ -30,7 +34,24 @@ const MT = "#888888";      // Text muted
 
 export default function Dashboard({ user, onLogout }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [role, setRole] = useState(null);
+  const [reminder, setReminder] = useState("");
   const location = useLocation();
+
+  useEffect(() => {
+    let alive = true;
+    attendanceService.membership().then((membership) => {
+      if (alive && membership?.membership_status === 'active') setRole(membership.web_role);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  useEffect(() => attendanceService.subscribeReminders(user?.id, (event) => {
+    setReminder(event?.new?.message || "Pengingat: silakan presensi keluar sebelum shift ditutup.");
+  }), [user?.id]);
+
+  const allowed = (path) => NAV.find((item) => item.to === path)?.roles.includes(role) ?? false;
+  const visibleNav = NAV.filter((item) => ["/presensi", "/perangkat", "/akun"].includes(item.to) || item.roles.includes(role));
 
   // Get route name for display
   const getRouteName = () => {
@@ -56,7 +77,7 @@ export default function Dashboard({ user, onLogout }) {
               
               {/* Navigation Tabs */}
               <div className="hidden lg:ml-6 lg:flex lg:space-x-4">
-                {NAV.map((tab) => (
+                {visibleNav.map((tab) => (
                   <Link
                     key={tab.to}
                     to={tab.to}
@@ -100,7 +121,7 @@ export default function Dashboard({ user, onLogout }) {
                         <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                         <p className="text-xs text-gray-500">@{user?.username}</p>
                         <span className="inline-block mt-1 px-2 py-1 text-xs font-semibold rounded" style={{ backgroundColor: '#e8f5ee', color: G }}>
-                          {user?.role?.toUpperCase()}
+                          {role.toUpperCase()}
                         </span>
                       </div>
                       <button
@@ -124,7 +145,7 @@ export default function Dashboard({ user, onLogout }) {
       {/* Mobile Navigation */}
       <div className="lg:hidden px-4 py-2" style={{ backgroundColor: W, borderBottom: `1px solid ${BD}` }}>
         <div className="mobile-nav" aria-label="Navigasi utama">
-          {NAV.map((tab) => (
+          {visibleNav.map((tab) => (
             <Link
               key={tab.to}
               to={tab.to}
@@ -143,15 +164,17 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* Main Content */}
       <main className="dashboard-main max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {reminder && <div role="alert" className="mb-3 flex items-start justify-between gap-3 border-l-4 border-orange-600 bg-orange-50 p-4 text-sm text-orange-950"><span>{reminder}</span><button aria-label="Tutup pengingat presensi" onClick={() => setReminder("")} className="font-bold">Tutup</button></div>}
         <Suspense fallback={<div className="py-12 text-center text-sm text-gray-500">Memuat laporan…</div>}>
           <Routes>
-            <Route path="isi-stok" element={<StokView user={user} />} />
-            <Route path="laporan" element={<LaporanView user={user} />} />
-            <Route path="riwayat" element={<RiwayatView user={user} />} />
-            <Route path="data-sync" element={<SyncDataView />} />
+            <Route path="presensi" element={<AttendanceView user={user} />} />
+            <Route path="isi-stok" element={allowed('/isi-stok') ? <StokView user={user} /> : <Navigate to="/presensi" replace />} />
+            <Route path="laporan" element={allowed('/laporan') ? <><LaporanView user={user} /><AttendanceLog /></> : <Navigate to="/presensi" replace />} />
+            <Route path="riwayat" element={allowed('/riwayat') ? <RiwayatView user={user} /> : <Navigate to="/presensi" replace />} />
+            <Route path="data-sync" element={allowed('/data-sync') ? <SyncDataView /> : <Navigate to="/presensi" replace />} />
             <Route path="perangkat" element={<DevicesView />} />
             <Route path="akun" element={<AccountView user={user} />} />
-            <Route index element={<Navigate to="/laporan" />} />
+            <Route index element={<Navigate to="/presensi" replace />} />
           </Routes>
         </Suspense>
       </main>

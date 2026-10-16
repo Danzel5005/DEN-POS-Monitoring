@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiArrowLeft, FiMaximize, FiMinimize, FiRefreshCw, FiVolume2, FiVolumeX } from "react-icons/fi";
 import { KDS_KIND_LABEL, KDS_STATUS_LABEL } from "../utils/kds-contract.js";
+import { attendanceService } from "../services/attendanceService";
 import {
   loadKdsStores,
   loadKdsStations,
@@ -115,7 +116,12 @@ export default function KdsView({ user, onLogout }) {
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("denpos-kds-sound") !== "off");
   const [fullScreen, setFullScreen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [attendanceReminder, setAttendanceReminder] = useState("");
   const rootRef = useRef(null);
+
+  useEffect(() => attendanceService.subscribeReminders(user?.id, (event) => {
+    setAttendanceReminder(event?.new?.message || "Pengingat: silakan presensi keluar sebelum shift ditutup.");
+  }), [user?.id]);
 
   const selectedStore = stores.find((store) => store.id === storeId);
   const refreshTickets = useCallback(async () => {
@@ -278,6 +284,8 @@ export default function KdsView({ user, onLogout }) {
         {connection === "live" ? "Tersambung langsung" : connection === "offline" ? `Terputus${lastUpdated ? ` · data terakhir ${lastUpdated.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : " · menunggu koneksi"}` : "Menghubungkan…"}
         {lastUpdated && <span className="kds-updated">Pembaruan {lastUpdated.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>}
       </div>
+
+      {attendanceReminder && <div role="alert" style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", justifyContent: "space-between", gap: 12, padding: 12, background: "#fff1db", color: "#713f12", borderBottom: "2px solid #e87c2a", fontSize: 14, fontWeight: 700 }}><span>{attendanceReminder}</span><button onClick={() => setAttendanceReminder("")} aria-label="Tutup pengingat presensi">Tutup</button></div>}
 
       {error && <div className="kds-error" role="alert"><span>{error}</span><button onClick={() => { setError(""); refreshTickets(); }}>Coba lagi</button></div>}
       {loading ? <div className="kds-empty">Memuat pesanan…</div>

@@ -2,9 +2,21 @@ import { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AuthScreen from './components/AuthScreen';
 import { authService } from './services/authService';
+import { attendanceService } from './services/attendanceService';
 
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const KdsView = lazy(() => import('./components/KdsView'));
+function KdsRoute({ user, onLogout }) {
+  const [role, setRole] = useState("loading");
+  useEffect(() => {
+    let alive = true;
+    attendanceService.membership().then((membership) => { if (alive) setRole(membership?.web_role || "none"); })
+      .catch(() => { if (alive) setRole("none"); });
+    return () => { alive = false; };
+  }, [user?.id]);
+  if (role === "loading") return <div className="p-6 text-center">Memeriksa akses…</div>;
+  return ["kasir", "bar", "admin"].includes(role) ? <KdsView user={user} onLogout={onLogout} /> : <Navigate to="/presensi" replace />;
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -60,7 +72,7 @@ function App() {
           element={user ? <Navigate to={location.state?.from || "/laporan"} replace /> : <AuthScreen onLogin={handleLogin} />}
         />
         <Route path="/kds" element={user
-          ? <Suspense fallback={<div className="p-6 text-center">Memuat…</div>}><KdsView user={user} onLogout={handleLogout} /></Suspense>
+          ? <Suspense fallback={<div className="p-6 text-center">Memuat…</div>}><KdsRoute user={user} onLogout={handleLogout} /></Suspense>
           : <Navigate to="/login" replace state={{ from: location.pathname }} />
         } />
         <Route
