@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import RiwayatView from './RiwayatView';
 import DevicesView from './DevicesView';
