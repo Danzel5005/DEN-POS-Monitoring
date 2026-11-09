@@ -55,6 +55,10 @@ export default function AttendanceView({ user }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, [load]);
 
   const activeShift = shifts.find((shift) => shift.status === "open");
   const ownSession = sessions.find((session) => session.user_id === user?.id);
@@ -89,7 +93,7 @@ export default function AttendanceView({ user }) {
       {activeShift ? <div className="border-b border-gray-300 bg-white p-5">
         <p className="mb-4 text-sm text-gray-700">Jarak maksimum dari perangkat kasir: <b>{activeShift.radius_m || radius} m</b>.</p>
         {!ownSession ? <button onClick={() => submitAttendance("checkIn")} disabled={busy} className="min-h-12 w-full rounded bg-green-800 px-5 font-bold text-white disabled:opacity-60">{busy ? "Mencari lokasi…" : "Presensi Masuk"}</button> : ownSession.status === "checked_in" ? <button onClick={() => submitAttendance("checkOut")} disabled={busy} className="min-h-12 w-full rounded bg-orange-700 px-5 font-bold text-white disabled:opacity-60">{busy ? "Mencari lokasi…" : "Presensi Keluar"}</button> : <p className="border-l-4 border-green-700 bg-green-50 p-4 font-semibold">Presensi shift ini selesai{ownSession.status === "overridden" ? " (ditutup oleh admin DEN POS)" : ""}.</p>}
-        <p className="mt-3 text-xs text-gray-500">Lokasi hanya digunakan saat Anda menekan tombol presensi. Izinkan akses lokasi saat diminta.</p>
+        <p className="mt-3 text-xs text-gray-500">Saat tombol presensi ditekan, browser akan meminta izin lokasi pada perangkat ini. Lokasi hanya digunakan untuk memvalidasi presensi.</p>
       </div> : <div className="bg-white p-5 text-sm text-gray-600">Presensi tersedia setelah perangkat DEN POS tersinkron membuka shift.</div>}
       <div className="mt-6 border-t border-gray-300 pt-4"><h2 className="mb-3 font-bold text-gray-900">Riwayat shift</h2>{shifts.length ? <div className="divide-y divide-gray-200 bg-white">{shifts.slice(0, 10).map((shift) => <div key={shift.id} className="flex justify-between gap-3 p-3 text-sm"><span>Shift {shift.shift_num || "-"} · {shift.operator_label || "DEN POS"}</span><span className={shift.status === "open" ? "font-semibold text-green-800" : "text-gray-500"}>{shift.status === "open" ? "Aktif" : "Ditutup"}</span></div>)}</div> : <p className="text-sm text-gray-500">Belum ada shift tersinkron.</p>}</div>
     </>}
