@@ -10,6 +10,7 @@ React-based web application for monitoring point-of-sale transactions, viewed at
 - Store Overview (Account) - View store information and membership details
 - Data Synchronization (Sync Data) - Manually trigger data sync from POS systems
 - Excel Export - Download transaction history and reports in .xlsx format with optional filtering
+- Employee Attendance - Location-based check-in/out, approved browser devices, and attendance history
 
 ## Tech Stack
 
@@ -53,6 +54,8 @@ Copy `.env.example` to `.env.local` (if available), then configure:
 VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
+
+Use only the Supabase project URL and public anon/publishable key in browser builds. Never configure a service-role key in Vercel or browser-visible variables. Add both variables to the Vercel project settings for Production, Preview, and Development. Location access requires HTTPS.
 
 4. Start development server
 
@@ -111,6 +114,16 @@ npm run preview
 3. View connected devices with last-seen timestamps
 4. Revoke inactive devices using the Revoke button
 5. Reactivate revoked devices when needed
+
+## Employee Attendance
+
+1. Employees sign in with their Supabase Auth account and open **Presensi**.
+2. The browser registers this installation and waits for approval in the desktop app's **Pengaturan → Presensi** tab.
+3. Admins set active locations, radius, and maximum GPS accuracy in the desktop app. Admins use their Supabase Auth email/password inside that tab; no separate admin website is needed.
+4. The browser requests location only when the attendance page opens, the employee submits check-in/out, or an admin requests a location refresh. Heartbeats update online status without collecting GPS.
+5. Check-in/out is validated and timestamped by Supabase. GPS spoofing cannot be reliably detected by a browser.
+
+The existing POS-shift attendance page remains available at `/presensi-shift`. Fingerprint attendance is not enabled by this feature: offline biometric events need the exact machine model/protocol and a separate signed, idempotent sync flow.
 
 ## Project Structure
 

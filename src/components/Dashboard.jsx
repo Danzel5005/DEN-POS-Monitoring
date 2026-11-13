@@ -5,6 +5,7 @@ import DevicesView from './DevicesView';
 import SyncDataView from './SyncDataView';
 import AccountView from './AccountView';
 import AttendanceView from './AttendanceView';
+import EmployeeAttendanceView from './EmployeeAttendanceView';
 import AttendanceLog from './AttendanceLog';
 import { attendanceService } from '../services/attendanceService';
 
@@ -167,7 +168,8 @@ export default function Dashboard({ user, onLogout }) {
         {reminder && <div role="alert" className="mb-3 flex items-start justify-between gap-3 border-l-4 border-orange-600 bg-orange-50 p-4 text-sm text-orange-950"><span>{reminder}</span><button aria-label="Tutup pengingat presensi" onClick={() => setReminder("")} className="font-bold">Tutup</button></div>}
         <Suspense fallback={<div className="py-12 text-center text-sm text-gray-500">Memuat laporan…</div>}>
           <Routes>
-            <Route path="presensi" element={<AttendanceView user={user} />} />
+            <Route path="presensi" element={<EmployeeAttendanceView user={user} />} />
+            <Route path="presensi-shift" element={<AttendanceView user={user} />} />
             <Route path="isi-stok" element={allowed('/isi-stok') ? <StokView user={user} /> : <Navigate to="/presensi" replace />} />
             <Route path="laporan" element={allowed('/laporan') ? <><LaporanView user={user} /><AttendanceLog /></> : <Navigate to="/presensi" replace />} />
             <Route path="riwayat" element={allowed('/riwayat') ? <RiwayatView user={user} /> : <Navigate to="/presensi" replace />} />

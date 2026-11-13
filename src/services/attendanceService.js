@@ -5,7 +5,19 @@ function resultOrThrow({ data, error }) {
   return data;
 }
 
+function getAttendanceDeviceUuid() {
+  const key = "denpos.attendance.device_uuid";
+  const stored = localStorage.getItem(key);
+  if (stored && /^[0-9a-f-]{36}$/i.test(stored)) return stored;
+  if (!globalThis.crypto?.randomUUID) throw new Error("Browser aman (HTTPS) diperlukan untuk mendaftarkan perangkat.");
+  const id = crypto.randomUUID();
+  localStorage.setItem(key, id);
+  return id;
+}
+
 export const attendanceService = {
+  deviceUuid: getAttendanceDeviceUuid,
+
   async membership() {
     if (!supabase) throw new Error("Supabase belum dikonfigurasi.");
     const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -41,13 +53,87 @@ export const attendanceService = {
 
   async report(storeId, startDate, endDate) {
     let query = supabase.from("attendance_sessions")
-      .select("id, user_label, status, checked_in_at, checked_out_at, check_in_distance_m, check_out_distance_m, checkout_overwritten, attendance_shifts!inner(shift_num, operator_label, opened_at, store_id)")
-      .eq("attendance_shifts.store_id", storeId)
+      .select("id, user_label, user_email, status, checked_in_at, checked_out_at, check_in_distance_m, check_out_distance_m, checkout_overwritten, shift_id, attendance_shifts(shift_num, operator_label, opened_at)")
+      .eq("store_id", storeId)
       .order("checked_in_at", { ascending: false }).limit(1000);
     if (startDate) query = query.gte("checked_in_at", `${startDate}T00:00:00`);
     if (endDate) query = query.lte("checked_in_at", `${endDate}T23:59:59`);
     const { data, error } = await query;
     return resultOrThrow({ data, error }) || [];
+  },
+
+  async activeLocations(storeId) {
+    const { data, error } = await supabase.from("attendance_locations")
+      .select("id, name, latitude, longitude, radius_m, max_accuracy_m")
+      .eq("store_id", storeId).eq("status", "active").order("name");
+    return resultOrThrow({ data, error }) || [];
+  },
+
+  async mySessions(storeId, userId) {
+    const { data, error } = await supabase.from("attendance_sessions")
+      .select("id, status, checked_in_at, checked_out_at, check_in_distance_m, check_out_distance_m, user_email")
+      .eq("store_id", storeId).eq("user_id", userId)
+      .order("checked_in_at", { ascending: false }).limit(20);
+    return resultOrThrow({ data, error }) || [];
+  },
+
+  async myActiveSession(userId) {
+    const { data, error } = await supabase.from("attendance_sessions")
+      .select("id, store_id, status, checked_in_at, user_email")
+      .eq("user_id", userId).eq("status", "checked_in").maybeSingle();
+    return resultOrThrow({ data, error });
+  },
+
+  async registerDevice(storeId) {
+    const { data, error } = await supabase.rpc("register_attendance_device", {
+      p_store_id: storeId,
+      p_device_uuid: getAttendanceDeviceUuid(),
+      p_device_name: "Browser karyawan",
+    });
+    return resultOrThrow({ data, error });
+  },
+
+  async recordLocation(deviceUuid, position) {
+    const { error } = await supabase.rpc("record_attendance_location", {
+      p_device_uuid: deviceUuid,
+      p_latitude: position.coords.latitude,
+      p_longitude: position.coords.longitude,
+      p_accuracy_m: position.coords.accuracy,
+    });
+    if (error) throw new Error(error.message || "Lokasi perangkat gagal diperbarui.");
+  },
+
+  async heartbeat(deviceUuid) {
+    const { error } = await supabase.rpc("heartbeat_attendance_device", { p_device_uuid: deviceUuid });
+    if (error) throw new Error(error.message || "Heartbeat perangkat gagal.");
+  },
+
+  async submit(type, storeId, deviceUuid, position) {
+    const { data, error } = await supabase.functions.invoke("submit-attendance", {
+      body: {
+        storeId,
+        deviceId: deviceUuid,
+        type,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        requestId: crypto.randomUUID(),
+      },
+    });
+    if (error) {
+      const body = await error.context?.json?.().catch(() => null);
+      throw new Error(body?.code || body?.error || error.message || "Permintaan presensi gagal.");
+    }
+    if (!data?.ok) throw new Error(data?.code || "Permintaan presensi gagal.");
+    return data;
+  },
+
+  subscribeLocationRefresh(storeId, callback, onStatus) {
+    if (!supabase || !storeId) return () => {};
+    const channel = supabase.channel(`attendance-store-${storeId}`, { config: { private: true } })
+      .on("broadcast", { event: "refresh-location" }, callback)
+      .subscribe(onStatus);
+    return () => { supabase.removeChannel(channel); };
   },
 
   async checkIn(shiftId, position) {
